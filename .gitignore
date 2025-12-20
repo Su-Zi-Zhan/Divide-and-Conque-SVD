@@ -1,0 +1,14 @@
+# LaTeX complilation files
+*.aux
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.toc
+*.synctex.gz
+
+# IDE files
+*.vscode/
+
+# Dependency files
+*__pycache__/

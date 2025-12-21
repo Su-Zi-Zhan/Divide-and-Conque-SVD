@@ -4,6 +4,7 @@ Module for performing Singular Value Decomposition (SVD) on matrices.
 """
 import numpy as np
 
+from numpy import float64
 from numpy.typing import NDArray
 from typing import Tuple
 
@@ -36,7 +37,7 @@ class DCSVDSolver:
         """
         raise NotImplementedError("SVD solver is not implemented yet.")
     
-    def _recursive_step(self, d: NDArray, e: NDArray, depth: int):
+    def _recursive_step(self, d: NDArray[float64], e: NDArray[float64], depth: int):
         """
         A private method to perform a recursive step in the SVD algorithm.
         
@@ -51,3 +52,53 @@ class DCSVDSolver:
         self.stats['max_depth'] = max(self.stats['max_depth'], depth)
         # Placeholder for actual recursive SVD logic
         pass
+
+    def _divide(self, d: NDArray[float64], e: NDArray[float64]) -> Tuple:
+        """
+        A private method to divide the problem into smaller subproblems.
+        
+        :param self: The instance of the class.
+        :param d: Diagonal elements of the bidiagonal matrix.
+        :type d: NDArray[float64]
+        :param e: Lowerdiagonal elements of the bidiagonal matrix.
+        :type e: NDArray[float64]
+        :return: A tuple containing the divided subproblems.
+        :rtype: Tuple
+        """
+        n = len(d)
+        k = n // 2
+
+        beta = e[k - 1]
+        alpha = d[k - 1]
+
+        # Create subproblem 1
+        d1 = d[:k - 1].copy()
+        e1 = e[:k - 1].copy()
+
+        # Create subproblem 2
+        d2 = d[k:].copy()
+        e2 = e[k:].copy()
+
+        return k, alpha, beta, (d1, e1), (d2, e2)
+    
+    def _merge(self, k: int, alpha: float64, beta: float64,
+               U1: NDArray, S1: NDArray, Vt1: NDArray,
+               U2: NDArray, S2: NDArray, Vt2: NDArray) -> Tuple[NDArray, NDArray, NDArray]:
+        """
+        A private method to merge the results of two subproblems.
+        
+        :param self: The instance of the class.
+        :param k: Breakpoint index.
+        :type k: int
+        :param alpha: alpha value at the breakpoint.
+        :type alpha: float64
+        :param beta: beta value at the breakpoint.
+        :type beta: float64
+        :param U1, S1, Vt1: SVD results from the first subproblem.
+        :type U1, S1, Vt1: NDArray
+        :param U2, S2, Vt2: SVD results from the second subproblem.
+        :type U2, S2, Vt2: NDArray
+        :return: Merged U, S, Vt matrices.
+        :rtype: Tuple[NDArray, NDArray, NDArray]
+        """
+        raise NotImplementedError("Merge function is not implemented yet.")

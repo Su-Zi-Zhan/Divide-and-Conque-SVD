@@ -25,21 +25,17 @@
 \newcommand{\ep}{\varepsilon}
 \newcommand{\prg}{\paragraph}
  
-\newenvironment{theorem}[2][Theorem]{\begin{trivlist}
-\item[\hskip \labelsep {\bfseries #1}\hskip \labelsep {\bfseries #2.}]}{\end{trivlist}}
-\newenvironment{lemma}[2][Lemma]{\begin{trivlist}
-\item[\hskip \labelsep {\bfseries #1}\hskip \labelsep {\bfseries #2.}]}{\end{trivlist}}
-\newenvironment{exercise}[2][Exercise]{\begin{trivlist}
-\item[\hskip \labelsep {\bfseries #1}\hskip \labelsep {\bfseries #2.}]}{\end{trivlist}}
-\newenvironment{problem}[2][Problem]{\begin{trivlist}
-\item[\hskip \labelsep {\bfseries #1}\hskip \labelsep {\bfseries #2.}]}{\end{trivlist}}
-\newenvironment{question}[2][Question]{\begin{trivlist}
-\item[\hskip \labelsep {\bfseries #1}\hskip \labelsep {\bfseries #2.}]}{\end{trivlist}}
-\newenvironment{corollary}[2][Corollary]{\begin{trivlist}
-\item[\hskip \labelsep {\bfseries #1}\hskip \labelsep {\bfseries #2.}]}{\end{trivlist}}
-
-\newenvironment{solution}{\begin{proof}[Solution]}{\end{proof}}
-
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{corollary}[theorem]{Corollary}
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{observation}[theorem]{Observation}
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{claim}[theorem]{Claim}
+\newtheorem{fact}[theorem]{Fact}
+\newtheorem{assumption}[theorem]{Assumption}
+\newtheorem{example}[theorem]{Example}
+\newtheorem*{solution}{Solution}
 \lstset{
     language=Python,
     basicstyle=\ttfamily\small,
@@ -90,7 +86,7 @@ Given a matrix \(A \in \C^{m \times n}\), the goal of the Divide-and-Conquer SVD
 
 \subsection{Bidiagonalization}
 
-The first step is to reduce \(A\) to a bidiagonal form using Householder transformations. This involves applying a series of unitary transformations from the left and right to zero out the appropriate elements, resulting in a matrix \(B\) such that \(A = Q_1 B Q_2^{\star}\), where \(Q_1\) and \(Q_2\) are unitary matrices and \(B\) is lower bidiagonal if \(m \geq n\) or upper bidiagonal if \(m < n\). For simplicity, we will assume \(m \geq n\) in the following discussion and experiments. Since bidiagonalization is a well-studied process, we will not delve into its details here.
+The first step is to reduce \(A\) to a bidiagonal form using Householder transformations. This involves applying a series of unitary transformations from the left and right to zero out the appropriate elements, resulting in a matrix \(B\) such that \(A = Q_1 B Q_2^{\star}\), where \(Q_1\) and \(Q_2\) are unitary matrices and \(B\) is lower bidiagonal if \(m \geq n\) or upper bidiagonal if \(m < n\).
 
 Since bidiagonalization is a standard, well-studied process with a complexity of \(O(mn^2)\), it typically dominates the computational cost of the entire SVD. \textbf{To isolate and rigorously evaluate the performance of the Divide-and-Conquer algorithm (which specifically targets the bidiagonal phase), we will bypass this reduction step.} In our implementation and experiments, we will generate random bidiagonal matrices \(B\) directly as inputs.
 
@@ -223,6 +219,134 @@ Thus, the problem reduces \(\begin{bmatrix}
 \]
 
 To compute the SVD of \(B_1\) and \(B_2\), this process can be recursively applied until the submatrices are so small that their SVDs can be computed directly using Golub--Kahan algorithm or other stable methods. There can be at most \(O(\log n)\) levels of recursion.
+
+\subsection{Computing the SVD of \(M\)}
+
+Now we focus on computing the SVD of the matrix
+\[
+    M = \begin{bmatrix}
+        z_1 \\
+        z_2 & d_2 \\
+        \vdots & & \ddots \\
+        z_n & & & d_n \\
+    \end{bmatrix}
+\]
+where \(D = \op{diag}(d_1, \ldots, d_n)\), with \(0 =: d_1 \leq d_2 \leq \cdots \leq d_n\) and \(z = [z_1, \ldots, z_n]^{\op T}\). We further assume that
+\[
+    d_{j+1} - d_j \geq \tau \|M\|_2, \quad |z_j| \geq \tau \|M\|_2, \quad j = 1, \ldots, n - 1, 
+\]
+where \(\tau\) is a small positive constant to be specified later. Any matrix of this form can be reduced to one that satisfies these conditions by using the deflation procedure described in the next subsection and a simple permutation.
+
+\begin{lemma} \label{lm:secular}
+    Let \(M = U \Omega V^{\op T}\) be the SVD of \(M\) with
+    \[
+        U = [u_1, \ldots, u_n], \quad V = [v_1, \ldots, v_n], \quad \Omega = \op{diag}(\omega_1, \ldots, \omega_n),
+    \]
+    Then the singular values \(\omega_i\) satisfy the interlacing property
+    \[
+        0 < \omega_1 < d_2 < \omega_2 < d_3 < \cdots < d_n < \omega_n < d_n + \|z\|_2,
+    \]
+    and the secular equation
+    \begin{equation} \label{eq:secular}
+        f(\omega) := 1 + \sum_{k=1}^{n} \frac{z_k^2}{d_k^2 - \omega^2} = 0.
+    \end{equation}
+    The singular vectors are given by
+    \begin{equation} \label{eq:left_sing}
+        u_i = \begin{bmatrix}
+            \frac{z_1}{d_1^2 - \omega_i^2} \\
+            \frac{z_2}{d_2^2 - \omega_i^2} \\
+            \vdots \\
+            \frac{z_n}{d_n^2 - \omega_i^2} \\
+        \end{bmatrix} \Bigg/ \sqrt{
+            \sum_{j=1}^{n} \left( \frac{z_j}{d_j^2 - \omega_i^2} \right)^2
+        } \\
+    \end{equation}
+    and
+    \begin{equation} \label{eq:right_sing}
+        v_i = \begin{bmatrix}
+            -1 \\
+            \frac{d_2 z_2}{d_2^2 - \omega_i^2} \\
+            \vdots \\
+            \frac{d_n z_n}{d_n^2 - \omega_i^2} \\
+        \end{bmatrix} \Bigg/ \sqrt{
+            1 + \sum_{j=2}^{n} \left( \frac{d_j z_j}{d_j^2 - \omega_i^2} \right)^2
+        }
+    \end{equation}
+\end{lemma}
+
+Given \(D\) and all singular values, we can reconstruct \(M\) using the lemma below.
+
+\begin{lemma} \label{lm:reconstruct}
+    Given a diagonal matrix \(D = \op{diag}(d_1, \ldots, d_n)\) and a set of numbers \(\{\hat{\omega_i}\}_{i=1}^{n}\) satisfying the interlacing property
+    \[
+        0 = d_1 < \hat{\omega}_1 < d_2 < \hat{\omega}_2 < \cdots < d_n < \hat{\omega}_n < d_n + \|z\|_2,
+    \]
+    there exists a matrix
+    \[
+        \hat{M} = \begin{bmatrix}
+            \hat{z}_1 \\
+            \hat{z}_2 & d_2 \\
+            \vdots & & \ddots \\
+            \hat{z}_n & & & d_n \\
+        \end{bmatrix}
+    \]
+    whose singular values are exactly \(\{\hat{\omega}_i\}_{i=1}^{n}\). The elements \(\hat{z}_i\) can be computed by
+    \begin{equation} \label{eq:rank1}
+        |\hat{z}_i| = \sqrt{
+            (\hat{\omega}_n^2 - d_i^2) \prod_{k=1}^{i-1} \frac{(\hat{\omega}_k^2 - d_i^2)}{(d_k^2 - d_i^2)} \prod_{k=i}^{n} \frac{(\hat{\omega}_k^2 - d_i^2)}{(d_{k+1}^2 - d_i^2)}
+        }
+    \end{equation}
+\end{lemma}
+
+You can refer to Gu and Eisenstat (1995) for the proofs of Lemma \ref{lm:secular} and \ref{lm:reconstruct}.
+
+\subsubsection{Computing the Singular Vectors}
+
+In practice, we can compute the approximate singular values \(\{\hat{\omega}\}_{i=1}^{n}\) by solving the secular equation \eqref{eq:secular}. Once we have the approximate singular values, we can compute the singular vectors using equations \eqref{eq:left_sing} and \eqref{eq:right_sing}. However, directly using these formulas can lead to numerical instability, especially when the singular values are closely spaced --- small perturbations can cause great loss of orthogonality among the computed singular vectors. To address this issue, Gu and Eisenstat (1995) proposed a more stable method for computing the singular vectors.
+
+Lemma \ref{lm:reconstruct} allows us to reconstruct a matrix \(\hat{M}\) whose singular values are exactly the computed approximate singular values \(\{\hat{\omega}_i\}_{i=1}^{n}\). We can then compute the singular vectors of \(\hat{M}\) using equations \eqref{eq:left_sing} and \eqref{eq:right_sing}, which are more stable since the singular values are now exact. This approach significantly improves the numerical stability of the singular vector computation. Thus, the orthogonality of the computed singular vectors can be guaranteed to high precision. We can use \(\hat{M}\)'s SVD as an approximation to \(M\)'s SVD.
+
+\subsubsection{Computing the Singular Values}
+
+Now we discuss how to compute the singular values by solving the secular equation \eqref{eq:secular}. However, if we directly compute \(d_k^2 - \omega^2\), it may lead to severe cancellation errors when \(\omega\) is close to \(d_k\). To avoid this, we can compute the offsets. Specifically, for any \(i \leq n - 1\), we first check whether \(f\left(\frac{d_{i} + d_{i+1}}{2}\right)\) is positive to determine whether the root \(\omega_i\) lies in the left or right half of the interval \((d_i, d_{i+1})\).
+
+First assume that \(\omega_i \in \left(d_i, \frac{d_i + d_{i+1}}{2}\right)\). Now assume the offset \(\mu = \omega_i - d_i\) and the length of the interval \(\delta_j = d_j - d_i\). Then the denominator can be computed as
+\[
+    d_j^2 - \omega_i^2 = (d_j - d_i - \mu)(d_j + d_i + \mu) = (\delta_j - \mu)(d_i + d_j + \mu).
+\]
+Note that this method is numerically stable since \(\delta_j - \mu \in (\delta_j/2, \delta_j)\). We will then seek the root \(\mu_i = \omega_i - d_i \in (0, \delta_{i+1}/2)\) in the reformulated secular equation
+\[
+    f(\mu_i) := 1 + \sum_{k=1}^{n} \frac{z_k^2}{( \delta_k - \mu_i)(d_k + d_i + \mu_i)} = 0.
+\]
+For the convienience of subsequent discussion, we denote
+\[
+    \begin{aligned}
+        \varphi_i(\mu) &= \sum_{k=1}^{i} \frac{z_k^2}{(\delta_k - \mu)(d_k + d_i + \mu)}, \\
+        \psi_i(\mu) &= \sum_{k=i+1}^{n} \frac{z_k^2}{(\delta_k - \mu)(d_k + d_i + \mu)}.
+    \end{aligned}
+\]
+
+Now assume that \(\omega_i \in \left(\frac{d_i + d_{i+1}}{2}, d_{i+1}\right)\). We set the offset \(\mu_i = d_{i+1} - \omega_i\) and the length of the interval \(\delta_j = d_j - d_{i+1}\). We can similarly give the reformulated secular equation
+\[
+    f(\mu_i) := 1 + \sum_{k=1}^{n} \frac{z_k^2}{( \delta_k + \mu_i)(d_k + d_{i+1} - \mu_i)} = 0.
+\]
+We will seek the root \(\mu_i = d_{i+1} - \omega_i \in (0, \delta_{i}/2)\). Similarly, we denote
+\[
+    \begin{aligned}
+        \varphi_i(\mu) &= \sum_{k=1}^{i} \frac{z_k^2}{(\delta_k + \mu)(d_k + d_{i+1} - \mu)}, \\
+        \psi_i(\mu) &= \sum_{k=i+1}^{n} \frac{z_k^2}{(\delta_k + \mu)(d_k + d_{i+1} - \mu)}.
+    \end{aligned}
+\]
+Finally we consider the last singular value \(\omega_n > d_n\). Let \(\mu_n = \omega_n - d_n\) and \(\delta_j = d_j - d_n\), and we have the secular equation
+\[
+    f(\mu_n) := 1 + \sum_{k=1}^{n} \frac{z_k^2}{(\delta_k - \mu_n)(d_k + d_n + \mu_n)} = 0.
+\]
+And we will seek the root \(\mu_n \in (0, \|z\|_2)\).
+
+We can use bisection or the rational interpolation method to solve these secular equations efficiently. The stopping criterion is set to be
+\[
+    |f(\mu)| \leq n \ep (1 + |\varphi_i(\mu)| + |\psi_i(\mu)|),
+\]
 
 \section{Implementation Details}
 

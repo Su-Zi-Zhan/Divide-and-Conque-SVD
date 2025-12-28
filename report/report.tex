@@ -348,6 +348,212 @@ We can use bisection or the rational interpolation method to solve these secular
     |f(\mu)| \leq n \ep (1 + |\varphi_i(\mu)| + |\psi_i(\mu)|),
 \]
 
+\subsection{Deflation}
+
+\subsubsection{Local Deflation}
+
+Let \(\tau = 2 n^2 \ep\). Now we will show that we can reduce \(M\) to a same form that satisfies
+\[
+    |d_{i} - d_{j}| \geq \tau \|M\|_2, \quad \forall i \neq j, \quad |z_i| \geq \tau \|M\|_2.
+\]
+
+First, we will discuss how to handle the case when some \(z_i\) is very small. There are two subcases:
+
+\begin{enumerate}
+    \item If \(|z_1| < \tau \|M\|_2\), then we will replace \(M\) by
+    \[
+        M = \begin{bmatrix}
+            z_1 \\
+            z_2 & d_2 \\
+            \vdots & & \ddots \\
+            z_n & & & d_n \\
+        \end{bmatrix} = \begin{bmatrix}
+            \tau \|M\|_2 \\
+            z_2 & d_2 \\
+            \vdots & & \ddots \\
+            z_n & & & d_n \\
+        \end{bmatrix} + O(\tau \|M\|_2).
+    \]
+    The perturbed matrix has the same structure as \(M\) and satisfies the condition \(|z_1| \geq \tau \|M\|_2\).
+
+    \item If \(|z_i| < \tau \|M\|_2\), for some \(i \geq 2\), then we will replace \(M\) by
+    \[
+        M = \begin{bmatrix}
+            z_1 \\
+            z_2 & d_2 \\
+            \vdots & & \ddots \\
+            z_n & & & d_n \\
+        \end{bmatrix} = \begin{bmatrix}
+            z_1 \\
+            \vdots & \ddots \\
+            0 & & d_i \\
+            \vdots & & & \ddots \\
+            z_n & & & & d_n \\
+        \end{bmatrix} + O(\tau \|M\|_2).
+    \]
+    In this case, the \(i\)-th singular value of \(M\) is exactly \(d_i\) by Gershgorin circle theorem, and the corresponding left and right singular vectors are \(e_i\). Thus, we can deflate this singular value and reduce the problem size by 1. The principal submatrix maintains the same structure as \(M\).
+\end{enumerate}
+
+Next, we will discuss how to handle the case when some \(d_i\) and \(d_j\) are very close. There are two subcases:
+
+\begin{enumerate}
+    \item If \(|d_i - d_1| = |d_i| < \tau \|M\|_2\) for \(i \geq 2\), we can set \(d_i\) to zero and zero out the corresponding \(z_i\). Specifically, we can apply a Givens rotation on the rows \(1\) and \(i\) to zero out \(z_i\):
+    \[
+        GM = \begin{bmatrix}
+            c & & s \\
+            & I & \\
+            -s & & c \\
+            & & & & I \\
+        \end{bmatrix}
+        \begin{bmatrix}
+            z_1 \\
+            z_2 & d_2 \\
+            \vdots & & \ddots \\
+            z_n & & & d_n \\
+        \end{bmatrix} = \begin{bmatrix}
+            r \\
+            z_2 & d_2 \\
+            \vdots & & \ddots \\
+            0 & & & 0 \\
+            \vdots & & & & \ddots \\
+            z_n & & & & & d_n \\
+        \end{bmatrix} + O(\tau \|M\|_2).
+    \]
+    Thus, the \(i\)-th singular value of \(M\) is exactly zero, and the corresponding left singular vector is \(G^{\op T} e_i\) and right singular vector is \(e_i\). We can deflate this singular value and reduce the problem size by 1. The principal submatrix maintains the same structure as \(M\).
+    \item If \(|d_j - d_i| < \tau \|M\|_2\), similarly, we can apply contract Givens rotations on rows \(i\) and \(j\) to zero out \(z_j\):
+    \[
+        \begin{aligned}
+            G M G^{\op T} &= \begin{bmatrix}
+            I & & & & \\
+            & c & & s & \\
+            & & I & & \\
+            & -s & & c & \\
+            & & & & I \\
+        \end{bmatrix}
+        \begin{bmatrix}
+            z_1 \\
+            z_2 & d_2 \\
+            \vdots & & \ddots \\
+            z_n & & & d_n \\
+        \end{bmatrix}
+        \begin{bmatrix}
+            I & & & & \\
+            & c & & -s & \\
+            & & I & & \\
+            & s & & c & \\
+            & & & & I \\
+        \end{bmatrix}\\
+        &= \begin{bmatrix}
+            z_1 \\
+            \vdots & \ddots \\
+            r & & d_j \\
+            \vdots & & & \ddots \\
+            0 & & & & d_j \\
+            \vdots & & & & & \ddots \\
+            z_n & & & & & & d_n \\
+        \end{bmatrix} + O(\tau \|M\|_2).
+        \end{aligned}
+    \]
+    In the perturbed matrix, the \(j\)-th singular value is exactly \(d_j\) by Gershgorin circle theorem, and the leading principal submatrix maintains the same structure as \(M\).
+\end{enumerate}
+
+This process is called deflation of \(M\) by Gu and Eisenstat, but I think it is more appropriate to call it local deflation since it only considers the elements within \(M\).
+
+\subsubsection{Interblock Deflation}
+
+In the dividing strategy, we write
+\[
+    B = \begin{bmatrix}
+        Q & q \\
+    \end{bmatrix}
+    \begin{bmatrix}
+        M \\
+        0 \\
+    \end{bmatrix}
+    W^{\op T},
+\]
+where
+\[
+    Q = \begin{bmatrix}
+        c_0 q_1 & Q_1 \\
+        s_0 q_2 & & Q_2 \\
+    \end{bmatrix}, \quad M = \begin{bmatrix}
+        r_0 \\
+        \alpha_k l_1 & D_1 \\
+        \beta_k f_2 &  & D_2 \\
+    \end{bmatrix}, \quad W = \begin{bmatrix}
+        & W_1 \\
+        1 \\
+        & & W_2
+    \end{bmatrix}.
+\]
+Note that both \(Q\) and \(W\) are sparse. Thus, if \(M = U \Sigma V^*\), then the main cost is to compute the matrix multiplication \(QU\) and \(WV\). Gu proposed a deflation strategy to reduce the cost of these multiplications. 
+
+If \(r_0\) is small or \((\alpha_k l_1^{\op T}, \beta_k f_2^{\op T})\) has some small elements, we can apply the deflation procedure described in the previous subsection without changing the block structure of \(Q\) and \(W\). If \(D_1\) has a small element or several close elements, we can also apply the deflation procedure to \(D_1\), and similarly for \(D_2\). Again, these cases won't change the block structure of \(Q\) and \(W\).
+
+But if there are some close elements between \(D_1\) and \(D_2\), and we apply the deflation procedure above, then the block structure of \(Q\) and \(W\) will be destroyed. In this case, we can apply a permutation to \(M\). Gu proposed a "polarized permutation" strategy. We will move one of the close elements to the end of \(D_2\) and the other to the start of \(D_1\). This process is just like polarization. Like previous cases, we can apply Givens rotation to zero out the last element of \(\beta_k f_2\):
+\[
+    G M G^{\op T} = \begin{bmatrix}
+        r_0 \\
+        r & d_n \\
+        \alpha_k l_1' & & D_1' \\
+        \beta_k f_2' & &  & D_2' \\
+        0 & & & & d_n \\
+    \end{bmatrix} + O(\tau \|M\|_2) = \begin{bmatrix}
+        M' \\
+        & d_n \\
+    \end{bmatrix} + O(\tau \|M\|_2).
+\]
+As a cost, this deflation will still change the block structure of \(Q\) and \(W\). However, since we have placed the close elements at the boundary of \(D_1\) and \(D_2\), we can still maintain most of the sparsity of \(Q\) and \(W\). Specifically, we have
+\[
+    \begin{aligned}
+        B &= \begin{bmatrix}
+        Q G^{\op T} & q \\
+    \end{bmatrix}
+    \begin{bmatrix}
+        G M G^{\op T} \\
+        0 \\
+    \end{bmatrix}
+    (W G^{\op T})^{\op T} \\
+    &= \begin{bmatrix}
+        X_1 & x & q
+    \end{bmatrix}
+    \begin{bmatrix}
+        M' \\
+        & d_n \\
+        0 & 0 \\
+    \end{bmatrix}
+    \begin{bmatrix}
+        Y_1 & y \\
+    \end{bmatrix}^{\op T} + O(\tau \|M\|_2),
+    \end{aligned}
+\]
+where
+\[
+    X_1 = \begin{bmatrix}
+        c_0 q_1 & c q_1' & Q_1' & 0 \\
+        s_0 q_2 & s q_2' & 0 & Q_2' \\
+    \end{bmatrix}, \quad
+    x = \begin{bmatrix}
+        -s q_1' \\
+        c q_2' \\
+    \end{bmatrix}
+\]
+and
+\[
+    Y_1 = \begin{bmatrix}
+        0 & c w_1' & W_1' & 0 \\
+        1 & 0 & 0 & 0 \\
+        0 & s w_2' & 0 & W_2' \\
+    \end{bmatrix}, \quad y = \begin{bmatrix}
+        -s w_1' \\
+        0 \\
+        c w_2' \\
+    \end{bmatrix}.
+\]
+
+\(d_n\) is an approximate singular value that can be deflated. The corresponding left singular vector is \(x\) and right singular vector is \(y\). The matrix \(M_1\) has the same structure as \(M\) and can be deflated in a similar fashion until no diagonal element of \(D_1\) is close to a diagonal element of \(D_2\).
+
 \section{Implementation Details}
 
 Unimplemented.

@@ -8,13 +8,14 @@ from numpy.typing import NDArray
 from typing import Tuple
 from math import sqrt
 
-def givens(a: float, b: float) -> Tuple[float, float]:
+def givens(a: float, b: float) -> Tuple[float, float, float]:
     """
     Compute Givens rotation angles.
     :param a: vector element to rotate.
     :param b: vector element to rotate.
-    :return: (c, s), where c represents cosine and s represents sine.
+    :return: (c, s, r), where c represents cosine, s represents sine, and r is the rotated value.
     """
+    r = sqrt(a * a + b * b)
     if b == 0:
         c = 1
         s = 0
@@ -26,5 +27,5 @@ def givens(a: float, b: float) -> Tuple[float, float]:
         t = b / a
         c = 1 / sqrt(1 + t * t)
         s = c * t
-    return c, s
+    return c, s, r
 

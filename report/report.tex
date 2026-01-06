@@ -78,7 +78,7 @@ However, the naive implementation of the Divide-and-Conquer strategy suffers fro
 
 Fortunately, Gu and Eisenstat (1995) proposed a bidiagonal Divide-and-Conquer algorithm (BDC) that addresses these stability issues. Instead of directly computing the singular vectors from the original rank-1 perturbed system, their algorithm modifies the diagonal elements slightly to ensure that the secular equation's roots are well-separated. This adjustment significantly enhances numerical stability, allowing for accurate computation of singular values and vectors even in challenging scenarios. The BDC algorithm computes all the eigenvalues in \(O(n^2)\) time and the singular vectors in \(O(n^3)\) time, making it efficient for large-scale problems.
 
-This report presents a complete implementation of the Gu--Eisenstat Divide-and-Conquer SVD algorithm. In section 2, we provide a detailed description of the algorithm, highlighting \(\ldots\) (to be filled in). Some important implementation details are discussed in section 3, including \(\ldots\) (to be filled in). Finally, section 4 showcases numerical experiments that validate the accuracy and efficiency of our implementation compared to Numpy's built-in SVD function.
+This report presents a partial implementation of the Gu--Eisenstat Divide-and-Conquer SVD algorithm. In section 2, we provide a detailed description of the algorithm, highlighting the solving process of secular equation. Some important implementation details are discussed in section 3, including rational interpolation technique. Finally, section 4 showcases numerical experiments that validate the accuracy and efficiency of our implementation compared to Numpy's built-in SVD function.
 
 \section{Algorithm Description}
 
@@ -461,6 +461,8 @@ This process is called deflation of \(M\) by Gu and Eisenstat, but I think it is
 
 \subsubsection{Interblock Deflation}
 
+Note: The following two sections describe the standard strategy proposed by Gu and Eisenstat. In our current simplified implementation, we focus primarily on Local Deflation.
+
 In the dividing strategy, we write
 \[
     B = \begin{bmatrix}
@@ -554,16 +556,107 @@ and
 
 \(d_n\) is an approximate singular value that can be deflated. The corresponding left singular vector is \(x\) and right singular vector is \(y\). The matrix \(M_1\) has the same structure as \(M\) and can be deflated in a similar fashion until no diagonal element of \(D_1\) is close to a diagonal element of \(D_2\).
 
+\subsubsection{Global Deflation}
+
+We look back to the whole BDC algorithm. To illustrate global deflation, we look at two levels of the dividing strategy. 
+\[
+    B = \begin{bmatrix}
+        B_1 & \alpha_{i+j} e_{i+j} & 0 \\
+        0 & \beta_{i+j} e_1 & B_2 \\
+    \end{bmatrix} = \begin{bmatrix}
+        B_{1,1} & \alpha_i e_i & 0 & 0 & 0 \\
+        0 & \beta_i e_1 & B_{1,2} & \alpha_{i+j} e_j & 0 \\
+        0 & 0 & 0 & \beta_{i+j} e_1 & B_2 \\
+    \end{bmatrix}
+\]
+Let \(X_{1,2} \begin{bmatrix}
+    D_{1,2} \\
+    0 \\
+\end{bmatrix} Y_{1,2}^{\op T}\) be the SVD of \(B_{1,2}\), and let \((f_{1,2}^{\op T}, \varphi_{1,2})\) and \((l_{1,2}^{\op T}, \lambda_{1,2})\) be the first and last rows of \(X_{1,2}\), respectively. Then
+\[
+    B = \tilde{X} \begin{bmatrix}
+        B_{1,1} & \alpha_i e_i & 0 & 0 & 0 \\
+        0 & \beta_i f_{1,2} & D_{1,2} & \alpha_{i+j} l_{1,2} & 0 \\
+        0 & \beta_i \varphi_{1,2} & 0 & \alpha_{i+j} \lambda_{1,2} & 0 \\
+        0 & 0 & 0 & \beta_{i+j} e_1 & B_2 \\
+    \end{bmatrix} \tilde{Y}^{\op T},
+\]
+Let $\bar{d}_s$ be the $s$th diagonal element of $D_{1,2}$, and let $\bar{f}_s$ and $\bar{l}_s$ be the $s$th components of $f_{1,2}$ and $l_{1,2}$, respectively. Then ignoring all zero components, the $(i+s)$th column and row of the middle matrix are $(\bar{d}_s)$ and $(\beta_i\bar{f}_s, \bar{d}_s, \alpha_{i+j}\bar{l}_s)$, respectively. Thus if both $|\beta_i\bar{f}_s|$ and $|\alpha_{i+j}\bar{l}_s|$ are small, then we can perturb them to zero. $\bar{d}_s$ is a singular value of the perturbed matrix and the $(i+s)$th columns of $\tilde{X}$ and $\tilde{Y}$ are the corresponding left and right singular vectors, respectively. This singular value and its singular vectors can be deflated from all subsequent subproblems. We call this global deflation.
+
 \section{Implementation Details}
 
-Unimplemented.
+My code structure is as follows:
+\begin{lstlisting}[caption={Core Project Structure Snippet}]
+src/
+|-- __init__.py
+|-- dnc_svd.py
+|-- secular.py
+|-- utils.py
+tests/
+|-- test_secular.py
+report/
+|-- report.tex
+|-- report.pdf
+\end{lstlisting}
+
+In \texttt{dnc\_svd.py}, I implemented the BDC algorithm. In \texttt{secular.py}, I implemented the secular equation solver with local deflation. There is no need to talk about \texttt{dnc\_svd.py}, since the main content has been discussed in previous sections. What I want to highlight is the implementation of \texttt{secular.py}. In this part, we use rational interpolation to solve the secular equation. More precisely, we use fractional forms to approximate the secular function \(f(\omega)\):
+\[
+    f(\omega) \approx \frac{C_1}{\omega - d} + C_2.
+\]
+Here, \(d\) is the nearest pole to the current approximation of the root. \(C_1\) and \(C_2\) can be computed by evaluating \(f(\omega)\) and its derivative at the current approximation. Then we can compute the next approximation by solving the equation
+\[
+    \frac{C_1}{\omega - d} + C_2 = 0.
+\]
+This method converges very fast when the initial approximation is good. But sometimes it can lead to points outside the interval. To avoid this, we combine \textbf{rational interpolation} and \textbf{bisection} together. In most cases, we use rational interpolation. If the next approximation is outside the interval, we use bisection to get the next approximation.
 
 \section{Numerical Experiments}
 
-Unimplemented.
+Sorry that my implementation of the BDC algorithm is full of bugs and I haven't fixed them all yet. Thus, I cannot provide numerical experiments for BDC now. But, I have tested the secular equation solver with local deflation. The results are shown below.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{./figures/secular_function.pdf}
+\end{figure}
+
+The above figure shows the secular function \(f(\omega)\) for an arrowhead matrix. The green dots are the computed singular values. As we can see, the secular function is very close to zero at these points, which indicates that our secular equation solver works well. This experiment can be seen in \texttt{exp\_secular.py} in experiments folder.
+
+Another example of the secular equation solver is shown below:
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{./figures/test_secular.png}
+    \caption{Numerical experiment for secular equation solver. The test has five different phases. The first one is standard case. The second one has two small \(z\) elements. The third one has two close \(d\) elements. The fourth one intentionally creates unsorted \(d\) elements to test the permutation. The last one tests the general numerical accuracy by comparing \(f(\omega)\) with zero at computed singular values.}
+\end{figure}
+
+You can see this experiment in \texttt{test\_secular.py} in test folder.
+
+In fact, I have tested the main solver \texttt{DCSVDSolver} in \texttt{dnc\_svd.py} as well, but there exist huge errors in the computed singular values. I don't know why. I have turned to AI-s, but none of them can help me fix the bugs. The results are shown below:
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{./figures/svd_accuracy.pdf}
+    \caption{Numerical experiment for BDC algorithm.}
+\end{figure}
+We can observe that the main error occurs in the largest singular values. The problem can't be in the secular equation solver, since the same size of problem can be solved accurately there. I suspect that the problem lies in the dividing strategy or the merge strategy. But I have no idea how to fix it now. I will keep working on it in the future.
+
+Although the BDC algorithm is not working now, the main framework is ready. So we can test the runtime of the algorithm. You can see the results below:
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{./figures/svd_runtime_comparison.pdf}
+    \caption{Runtime experiment for BDC algorithm.}
+\end{figure}
+
+Although the theoretical worst-case complexity for computing singular vectors is $O(n^3)$, our experiments exhibit a runtime complexity closer to $O(n^2)$. This empirically demonstrates the effectiveness of the deflation strategy implemented in our solver, which significantly reduces the dimensionality of the secular equations for the test matrices. But you can still see that there exist an increase of slope when the matrix size goes to 1000. This indicates that the algorithm is actually \(O(n^3)\).
 
 \section{Conclusion}
 
-Unimplemented.
+In this report, we have discussed the divide-and-conquer algorithm for computing the singular value decomposition of a matrix. We have explained the main ideas of the algorithm, including the dividing strategy, the merge strategy, and the secular equation solver with local deflation. We have also provided some implementation details and numerical experiments.
+
+\section{Future Work}
+
+There are several directions for future work:
+\begin{enumerate}
+    \item Fix the bugs in the BDC algorithm implementation and ensure its correctness.
+    \item Implement interblock deflation and global deflation to improve the efficiency of the algorithm.
+    \item Conduct more extensive numerical experiments to evaluate the performance of the BDC algorithm compared to other SVD algorithms.
+\end{enumerate}
 
 \end{document}
